@@ -1,0 +1,341 @@
+const state = {
+    datasetId: null,
+    page: 0,
+    pageCount: 1,
+    columns: [],
+    numericColumns: [],
+    selectedRows: new Set(),
+    selectedColumns: new Set(),
+};
+
+const $ = (selector) => document.querySelector(selector);
+const alertBox = $("#alert");
+
+async function api(url, options = {}) {
+    const response = await fetch(url, options);
+    const contentType = response.headers.get("content-type") || "";
+    if (!contentType.includes("application/json")) {
+        await response.text();
+        if (response.status === 404 && url.startsWith("/api/")) {
+            throw new Error(
+                "This Flask server does not recognize the API route. Stop it, restart with `python eda.py` from the project folder, then refresh this page."
+            );
+        }
+        const hint = response.status >= 500
+            ? " Check the Flask terminal for the underlying error."
+            : " Make sure you opened the app through Flask.";
+        throw new Error(`The server returned a page instead of JSON (HTTP ${response.status}).${hint}`);
+    }
+
+    let body;
+    try {
+        body = await response.json();
+    } catch {
+        throw new Error(`The server returned invalid JSON (HTTP ${response.status}). Check the Flask terminal.`);
+    }
+    if (!response.ok) {
+        throw new Error(body.error || `Request failed (${response.status}).`);
+    }
+    return body;
+}
+
+function showMessage(message, kind = "error") {
+    alertBox.textContent = message;
+    alertBox.className = kind === "success" ? "alert success" : "alert";
+    alertBox.hidden = false;
+}
+
+function clearMessage() {
+    alertBox.hidden = true;
+}
+
+function setStep(activeStep) {
+    const steps = ["upload", "clean", "visualize"];
+    steps.forEach((name, index) => {
+        const element = $(`#step-${name}`);
+        element.classList.toggle("active", name === activeStep);
+        element.classList.toggle("done", steps.indexOf(activeStep) > index);
+    });
+}
+
+function formatNumber(value) {
+    return new Intl.NumberFormat().format(value);
+}
+
+function renderStats(data) {
+    const stats = [
+        ["ROWS", formatNumber(data.row_count)],
+        ["COLUMNS", formatNumber(data.column_count)],
+        ["MISSING VALUES", formatNumber(data.missing_count)],
+        ["NUMERIC FEATURES", formatNumber(data.numeric_columns.length)],
+    ];
+    const container = $("#stats");
+    container.replaceChildren();
+    stats.forEach(([label, value]) => {
+        const card = document.createElement("div");
+        card.className = "stat-card";
+        const title = document.createElement("span");
+        title.className = "stat-label";
+        title.textContent = label;
+        const number = document.createElement("strong");
+        number.className = "stat-value";
+        number.textContent = value;
+        card.append(title, number);
+        container.append(card);
+    });
+}
+
+function renderTable(data) {
+    state.page = data.page;
+    state.pageCount = data.page_count;
+    state.columns = data.columns;
+    state.numericColumns = data.numeric_columns;
+    renderStats(data);
+    renderFeatures(data.columns);
+    $("#table-count").textContent = `${formatNumber(data.row_count)} rows`;
+
+    const header = $("#table-head");
+    header.replaceChildren();
+    const headerRow = document.createElement("tr");
+    const selectHeader = document.createElement("th");
+    const selectPage = document.createElement("input");
+    selectPage.type = "checkbox";
+    selectPage.setAttribute("aria-label", "Select all rows on this page");
+    const pageIds = data.rows.map((row) => row.id);
+    selectPage.checked = pageIds.length > 0 && pageIds.every((id) => state.selectedRows.has(id));
+    selectPage.addEventListener("change", () => {
+        pageIds.forEach((id) => {
+            if (selectPage.checked) state.selectedRows.add(id);
+            else state.selectedRows.delete(id);
+        });
+        renderTable(data);
+    });
+    selectHeader.append(selectPage);
+    headerRow.append(selectHeader);
+    data.columns.forEach((column) => {
+        const cell = document.createElement("th");
+        cell.textContent = column;
+        headerRow.append(cell);
+    });
+    header.append(headerRow);
+
+    const body = $("#table-body");
+    body.replaceChildren();
+    data.rows.forEach((row) => {
+        const tableRow = document.createElement("tr");
+        if (state.selectedRows.has(row.id)) tableRow.classList.add("selected");
+        const checkboxCell = document.createElement("td");
+        const checkbox = document.createElement("input");
+        checkbox.type = "checkbox";
+        checkbox.checked = state.selectedRows.has(row.id);
+        checkbox.setAttribute("aria-label", `Select row ${row.id + 1}`);
+        checkbox.addEventListener("change", () => {
+            if (checkbox.checked) state.selectedRows.add(row.id);
+            else state.selectedRows.delete(row.id);
+            renderTable(data);
+        });
+        checkboxCell.append(checkbox);
+        tableRow.append(checkboxCell);
+        row.values.forEach((value) => {
+            const cell = document.createElement("td");
+            cell.textContent = value === null ? "—" : String(value);
+            cell.title = cell.textContent;
+            tableRow.append(cell);
+        });
+        body.append(tableRow);
+    });
+
+    $("#page-caption").textContent = `Page ${data.page + 1} of ${data.page_count}`;
+    $("#previous-page").disabled = data.page === 0;
+    $("#next-page").disabled = data.page >= data.page_count - 1;
+    $("#selection-count").textContent = `${formatNumber(state.selectedRows.size)} selected`;
+    $("#delete-rows").disabled = state.selectedRows.size === 0;
+    $("#keep-rows").disabled = state.selectedRows.size === 0;
+    updateChartOptions();
+}
+
+function renderFeatures(columns) {
+    const list = $("#feature-list");
+    list.replaceChildren();
+    columns.forEach((column) => {
+        const label = document.createElement("label");
+        label.className = "feature-option";
+        const checkbox = document.createElement("input");
+        checkbox.type = "checkbox";
+        checkbox.checked = state.selectedColumns.has(column);
+        checkbox.addEventListener("change", () => {
+            if (checkbox.checked) state.selectedColumns.add(column);
+            else state.selectedColumns.delete(column);
+            updateColumnActions();
+        });
+        const name = document.createElement("span");
+        name.textContent = column;
+        name.title = column;
+        label.append(checkbox, name);
+        list.append(label);
+    });
+    updateColumnActions();
+}
+
+function updateColumnActions() {
+    const count = state.selectedColumns.size;
+    $("#column-selection-count").textContent = `${formatNumber(count)} selected`;
+    $("#remove-columns").disabled = count === 0;
+    $("#keep-columns").disabled = count === 0;
+}
+
+async function loadPage(page) {
+    const data = await api(`/api/data?dataset_id=${encodeURIComponent(state.datasetId)}&page=${page}`);
+    renderTable(data);
+}
+
+function updateChartOptions() {
+    const primary = $("#primary-column");
+    const secondary = $("#secondary-column");
+    const values = state.numericColumns.length ? state.numericColumns : state.columns;
+    [primary, secondary].forEach((select) => {
+        const previous = select.value;
+        select.replaceChildren();
+        values.forEach((column) => {
+            const option = document.createElement("option");
+            option.value = column;
+            option.textContent = column;
+            select.append(option);
+        });
+        if (values.includes(previous)) select.value = previous;
+    });
+    if (secondary.options.length > 1 && secondary.value === primary.value) {
+        secondary.selectedIndex = 1;
+    }
+}
+
+function updateChartControls() {
+    const type = $("#chart-type").value;
+    $("#field-primary").hidden = type === "heatmap";
+    $("#field-secondary").hidden = type !== "scatter";
+    $("#primary-label").textContent = type === "scatter" ? "X AXIS" : "COLUMN";
+    updateChartOptions();
+}
+
+async function uploadFile(file) {
+    if (!file) return;
+    clearMessage();
+    const formData = new FormData();
+    formData.append("file", file);
+    try {
+        const data = await api("/api/upload", { method: "POST", body: formData });
+        state.datasetId = data.dataset_id;
+        state.selectedRows.clear();
+        state.selectedColumns.clear();
+        $("#data-panel").hidden = false;
+        $("#chart-panel").hidden = false;
+        renderTable(data);
+        updateChartControls();
+        setStep("clean");
+        $("#chart-result").innerHTML = '<div class="chart-empty"><div class="chart-empty-icon" aria-hidden="true">⌁</div><strong>Your next insight starts here</strong><span>Pick a chart and create a visualization.</span></div>';
+        showMessage(`Loaded ${formatNumber(data.row_count)} rows and ${formatNumber(data.column_count)} columns.`, "success");
+    } catch (error) {
+        showMessage(error.message);
+    }
+}
+
+async function changeRows(action) {
+    if (!state.selectedRows.size) return;
+    const ids = [...state.selectedRows];
+    const prompt = action === "keep"
+        ? `Keep these ${ids.length} selected rows and remove every other row from the working dataset?`
+        : `Delete these ${ids.length} selected rows from the working dataset?`;
+    if (!window.confirm(prompt)) return;
+
+    clearMessage();
+    try {
+        const data = await api("/api/rows", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ dataset_id: state.datasetId, action, row_ids: ids }),
+        });
+        state.selectedRows.clear();
+        renderTable(data);
+        showMessage(action === "keep" ? "Kept the selected rows." : "Deleted the selected rows.", "success");
+    } catch (error) {
+        showMessage(error.message);
+    }
+}
+
+async function changeColumns(action) {
+    if (!state.selectedColumns.size) return;
+    const columns = [...state.selectedColumns];
+    const question = action === "keep"
+        ? `Keep only these ${columns.length} selected columns?`
+        : `Remove these ${columns.length} selected columns?`;
+    if (!window.confirm(question)) return;
+
+    clearMessage();
+    try {
+        const data = await api("/api/columns", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ dataset_id: state.datasetId, action, columns }),
+        });
+        state.selectedColumns.clear();
+        renderTable(data);
+        showMessage(action === "keep" ? "Kept the selected columns." : "Removed the selected columns.", "success");
+    } catch (error) {
+        showMessage(error.message);
+    }
+}
+
+async function createChart() {
+    clearMessage();
+    const type = $("#chart-type").value;
+    const payload = { dataset_id: state.datasetId, type };
+    if (type === "histogram") payload.column = $("#primary-column").value;
+    if (type === "scatter") {
+        payload.x = $("#primary-column").value;
+        payload.y = $("#secondary-column").value;
+    }
+    const button = $("#plot-button");
+    button.disabled = true;
+    button.textContent = "Working…";
+    try {
+        const result = await api("/api/plot", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload),
+        });
+        const container = $("#chart-result");
+        container.replaceChildren();
+        const image = document.createElement("img");
+        image.src = result.image;
+        image.alt = `${type} chart`;
+        container.append(image);
+        if (result.note) {
+            const note = document.createElement("p");
+            note.className = "chart-note";
+            note.textContent = result.note;
+            container.append(note);
+        }
+        setStep("visualize");
+    } catch (error) {
+        showMessage(error.message);
+    } finally {
+        button.disabled = false;
+        button.innerHTML = '<span aria-hidden="true">✳</span> Create chart';
+    }
+}
+
+$("#upload-form").addEventListener("submit", (event) => event.preventDefault());
+$("#file-input").addEventListener("change", (event) => uploadFile(event.target.files[0]));
+$("#replace-dataset").addEventListener("click", () => $("#file-input").click());
+$("#previous-page").addEventListener("click", async () => {
+    try { await loadPage(state.page - 1); } catch (error) { showMessage(error.message); }
+});
+$("#next-page").addEventListener("click", async () => {
+    try { await loadPage(state.page + 1); } catch (error) { showMessage(error.message); }
+});
+$("#delete-rows").addEventListener("click", () => changeRows("delete"));
+$("#keep-rows").addEventListener("click", () => changeRows("keep"));
+$("#remove-columns").addEventListener("click", () => changeColumns("delete"));
+$("#keep-columns").addEventListener("click", () => changeColumns("keep"));
+$("#chart-type").addEventListener("change", updateChartControls);
+$("#plot-button").addEventListener("click", createChart);

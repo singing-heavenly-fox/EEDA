@@ -1,0 +1,170 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#f5f6f8">
+  <title>EEDA (Eazy EDA)</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar">
+      <a class="brand" href="/" aria-label="EEDA, Easy EDA home">
+        <span class="brand-mark" aria-hidden="true"><span></span><span></span><span></span></span>
+        <span>EEDA<span class="brand-period">.</span></span>
+      </a>
+
+      <div class="sidebar-label">WORKSPACE</div>
+      <nav class="steps" aria-label="EDA workflow">
+        <div class="step active" id="step-upload">
+          <span class="step-number">01</span><span>Load your data</span>
+          <span class="step-dot"></span>
+        </div>
+        <div class="step" id="step-clean">
+          <span class="step-number">02</span><span>Review &amp; clean</span>
+          <span class="step-dot"></span>
+        </div>
+        <div class="step" id="step-visualize">
+          <span class="step-number">03</span><span>Explore patterns</span>
+          <span class="step-dot"></span>
+        </div>
+      </nav>
+
+      <div class="sidebar-bottom">
+        <div class="privacy-note"><span class="privacy-icon">↗</span><span>Your data stays in this app session and is never saved to disk.</span></div>
+        <div class="version-label">EEDA <span>·</span> EASY EDA</div>
+      </div>
+    </aside>
+
+    <main class="main-content">
+      <header class="topbar">
+        <div class="breadcrumb">Workspace <span>/</span> <strong>Untitled analysis</strong></div>
+        <a class="guide-link" href="/guide.txt" target="_blank" rel="noreferrer"><span aria-hidden="true">?</span> Quick guide</a>
+      </header>
+
+      <div class="content-wrap">
+        <section class="page-heading">
+          <div>
+            <div class="eyebrow"><span class="eyebrow-line"></span> YOUR DATA, MADE CLEAR</div>
+            <h1>Explore your data<span class="heading-dot">.</span></h1>
+            <p class="subtitle">A thoughtful workspace for turning raw rows into useful insights.</p>
+          </div>
+          <div class="heading-meta"><span class="live-dot"></span> LOCAL SESSION</div>
+        </section>
+
+        <div id="alert" class="alert" role="status" aria-live="polite" hidden></div>
+
+        <section class="upload-card" id="upload-panel" aria-labelledby="upload-title">
+          <div class="upload-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none"><path d="M12 16V4m0 0L7.5 8.5M12 4l4.5 4.5M5 14.5v3A2.5 2.5 0 0 0 7.5 20h9a2.5 2.5 0 0 0 2.5-2.5v-3" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </div>
+          <div class="upload-copy">
+            <span class="section-kicker">STEP 01 <span>·</span> START WITH A DATASET</span>
+            <h2 id="upload-title">Bring your data in</h2>
+            <p>Upload a CSV to begin exploring. Your original file stays untouched.</p>
+          </div>
+          <form id="upload-form" class="upload-form">
+            <label class="file-picker" for="file-input"><span aria-hidden="true">＋</span> Choose CSV</label>
+            <input id="file-input" name="file" type="file" accept=".csv,text/csv" required>
+            <span class="file-hint">CSV · up to 16 MB</span>
+          </form>
+        </section>
+
+        <section class="workspace" id="data-panel" hidden>
+          <div class="section-heading">
+            <div>
+              <span class="section-kicker">STEP 02 <span>·</span> REVIEW &amp; CLEAN</span>
+              <h2>Take a closer look</h2>
+              <p class="section-description">Select rows to remove or keep. Changes apply to this session’s working copy.</p>
+            </div>
+            <button class="text-button" id="replace-dataset" type="button">↑ Replace dataset</button>
+          </div>
+
+          <div class="stats-grid" id="stats"></div>
+
+          <div class="feature-card">
+            <div class="feature-heading">
+              <div>
+                <div class="table-title"><span class="table-spark">✳</span><strong>Choose your features</strong></div>
+                <p class="section-description">Select columns to keep or remove from your working dataset.</p>
+              </div>
+              <div class="feature-actions">
+                <span class="selection-count" id="column-selection-count">0 selected</span>
+                <button class="button button-subtle" id="remove-columns" type="button" disabled>Remove selected</button>
+                <button class="button button-primary" id="keep-columns" type="button" disabled>Keep selected</button>
+              </div>
+            </div>
+            <div class="feature-list" id="feature-list" aria-label="Dataset columns"></div>
+          </div>
+
+          <div class="data-card">
+            <div class="data-toolbar">
+              <div class="table-title"><span class="table-spark">✳</span><strong>Data preview</strong><span class="row-count" id="table-count"></span></div>
+              <div class="row-actions">
+                <span class="selection-count" id="selection-count">0 selected</span>
+                <button class="button button-subtle" id="delete-rows" type="button" disabled>Delete selected</button>
+                <button class="button button-primary" id="keep-rows" type="button" disabled>Keep selected</button>
+              </div>
+            </div>
+            <div class="table-scroll">
+              <table>
+                <thead id="table-head"></thead>
+                <tbody id="table-body"></tbody>
+              </table>
+            </div>
+            <div class="table-footer">
+              <span id="page-caption">Page 1 of 1</span>
+              <div class="pagination">
+                <button class="page-button" id="previous-page" type="button" aria-label="Previous page">←</button>
+                <button class="page-button" id="next-page" type="button" aria-label="Next page">→</button>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="visualization" id="chart-panel" hidden>
+          <div class="section-heading chart-heading">
+            <div>
+              <span class="section-kicker">STEP 03 <span>·</span> EXPLORE PATTERNS</span>
+              <h2>Make it visual</h2>
+              <p class="section-description">Choose a view to reveal distributions and relationships in your data.</p>
+            </div>
+          </div>
+          <div class="chart-card">
+            <div class="chart-controls">
+              <label class="control-field">
+                <span>CHART TYPE</span>
+                <select id="chart-type">
+                  <option value="histogram">Histogram + KDE</option>
+                  <option value="scatter">Scatter plot</option>
+                  <option value="heatmap">Correlation heatmap</option>
+                </select>
+              </label>
+              <label class="control-field" id="field-primary">
+                <span id="primary-label">COLUMN</span>
+                <select id="primary-column"></select>
+              </label>
+              <label class="control-field" id="field-secondary" hidden>
+                <span id="secondary-label">Y AXIS</span>
+                <select id="secondary-column"></select>
+              </label>
+              <button class="button button-primary plot-button" id="plot-button" type="button"><span aria-hidden="true">✳</span> Create chart</button>
+            </div>
+            <div class="chart-result" id="chart-result">
+              <div class="chart-empty">
+                <div class="chart-empty-icon" aria-hidden="true">⌁</div>
+                <strong>Your next insight starts here</strong>
+                <span>Pick a chart and create a visualization.</span>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <footer class="page-footer"><span>Made for curious minds.</span><span>FIELDNOTE <span class="footer-dot">✳</span></span></footer>
+      </div>
+    </main>
+  </div>
+  <script src="{{ url_for('static', filename='app.js') }}" defer></script>
+</body>
+</html>
