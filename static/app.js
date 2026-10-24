@@ -315,7 +315,9 @@ async function loadPage(page) {
 function updateChartOptions() {
     const primary = $("#primary-column");
     const secondary = $("#secondary-column");
-    const values = state.numericColumns.length ? state.numericColumns : state.columns;
+    const values = $("#chart-type").value === "count"
+        ? state.columns
+        : (state.numericColumns.length ? state.numericColumns : state.columns);
     [primary, secondary].forEach((select) => {
         const previous = select.value;
         select.replaceChildren();
@@ -439,7 +441,9 @@ async function createChart() {
     clearMessage();
     const type = $("#chart-type").value;
     const payload = { dataset_id: state.datasetId, type };
-    if (type === "histogram") payload.column = $("#primary-column").value;
+    if (["histogram", "violin", "count", "box"].includes(type)) {
+        payload.column = $("#primary-column").value;
+    }
     if (type === "scatter") {
         payload.x = $("#primary-column").value;
         payload.y = $("#secondary-column").value;
