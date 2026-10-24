@@ -6,7 +6,7 @@ import math
 import uuid
 import io
 import base64
-from flask import Flask,render_template, jsonify,request, send_from_directory
+from flask import Flask, render_template, jsonify, request, send_file
 
 #create chart images
 #without openning a window
@@ -17,6 +17,7 @@ app.config["MAX_CONTENT_LENGTH"] = 16*1024*1024 #upload lim:16MB
 
 rows_per_page = 50
 datasets = {}
+original_files = {}
 
 def error_response(message,status = 404):
     return jsonify({"error":message}),status
@@ -53,17 +54,24 @@ def make_dataset_response(dataset_id,frame,page=0):
         })
 
     numeric_columns = frame.select_dtypes(include = "number").columns.tolist()
+    integer_columns = frame.select_dtypes(include = "integer").columns.tolist()
+    missing_per_column = {
+        str(column): int(count)
+        for column, count in frame.isna().sum().items()
+        if count > 0
+    }
+    duplicate_rows = int(frame.duplicated().sum())
     return {
         "dataset_id" : dataset_id,
         "columns" : [str(column) for column in frame.columns],
         "numeric_columns": [str(column) for column in numeric_columns],
+        "integer_columns": [str(column) for column in integer_columns],
         "rows": rows,
         "row_count" : len(frame),
         "column_count":len(frame.columns),
-        #this only gives total number of null values in a dataset
-        #need improvement of this,we need more specific info
-        #like which feature has how many null values
         "missing_count":int(frame.isna().sum().sum()),
+        "missing_per_column": missing_per_column,
+        "duplicate_rows": duplicate_rows,
         "page":page,
         "page_count":page_count,
         "page_size": rows_per_page,
@@ -82,13 +90,30 @@ def upload_csv():
         return error_response("The uploaded file must have a .csv extension.")
 
     try:
-        frame = pd.read_csv(uploaded_file.stream)
+        raw = uploaded_file.stream.read()
+        frame = pd.read_csv(io.BytesIO(raw))
     except (pd.errors.ParseError, pd.errors.EmptyDataError,UnicodeDecodeError,ValueError) as error:
         return error_response(f"could not read this file:{error}")
 
     dataset_id = uuid.uuid4().hex
     datasets[dataset_id] = frame
+    original_files[dataset_id] = (uploaded_file.filename, raw)
     return jsonify(make_dataset_response(dataset_id,frame))
+
+@app.get("/api/download/<dataset_id>")
+def download_csv(dataset_id):
+    if dataset_id not in datasets:
+        return error_response("Dataset not found. Upload it again to continue.", 404)
+    frame = datasets[dataset_id]
+    csv_bytes = frame.to_csv(index=False).encode("utf-8")
+    filename = original_files[dataset_id][0] if dataset_id in original_files else "modified.csv"
+    return send_file(
+        io.BytesIO(csv_bytes),
+        mimetype="text/csv",
+        as_attachment=True,
+        download_name=filename,
+    )
+
 
 @app.get("/api/data")
 def get_data():
