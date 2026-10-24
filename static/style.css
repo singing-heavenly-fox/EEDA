@@ -487,20 +487,29 @@ h2 {
 }
 
 .stat-label {
-    color: #9aa1aa;
+    color: #515963;
     font-family: "DM Mono", Consolas, monospace;
-    font-size: 8px;
-    letter-spacing: .75px;
+    font-size: 9px;
+    letter-spacing: .8px;
+    font-weight: 600;
 }
 
 .stat-value {
     display: block;
-    margin-top: 7px;
-    color: #353b44;
+    margin-top: 8px;
+    color: #20252c;
     font-family: "Manrope", "Segoe UI", sans-serif;
-    font-size: 20px;
-    font-weight: 700;
-    letter-spacing: -.7px;
+    font-size: 24px;
+    font-weight: 800;
+    letter-spacing: -.5px;
+}
+
+.stat-value.high {
+    color: #8a540d;
+}
+
+.stat-value.warn {
+    color: #b32828;
 }
 
 .feature-card {
@@ -860,6 +869,166 @@ input[type="checkbox"] {
     border-color: #d9ece4;
     color: #39745d;
     background: #f3fbf7;
+}
+
+.analysis-card {
+    border: 1px solid #e9ebee;
+    border-radius: 10px;
+    background: var(--white);
+    box-shadow: var(--shadow);
+    overflow: hidden;
+}
+
+.analysis-card .feature-heading {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 14px;
+    padding: 16px 16px 0 16px;
+}
+
+.analysis-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 7px 11px;
+    border-radius: 5px;
+    font-size: 11px;
+    font-weight: 700;
+    white-space: nowrap;
+    letter-spacing: .2px;
+}
+
+.analysis-badge.dup {
+    background: #fde6b3;
+    color: #8a540d;
+    border: 1px solid #f3c98a;
+}
+
+.analysis-badge.missing {
+    background: #fdd3d3;
+    color: #b32828;
+    border: 1px solid #f1a9a9;
+}
+
+.analysis-badge.ok {
+    background: #d3ecde;
+    color: #1f7a4d;
+    border: 1px solid #aed8bd;
+}
+
+.color-legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-top: 12px;
+    padding: 0 16px 16px 16px;
+    border-bottom: 1px solid #e9ebee;
+}
+
+.legend-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 10px;
+    color: #424953;
+    font-family: "DM Mono", Consolas, monospace;
+    font-weight: 600;
+    letter-spacing: .4px;
+}
+
+.legend-dot {
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    border: 1px solid rgba(0,0,0,.1);
+    flex-shrink: 0;
+}
+
+.legend-dot.dup { background: #fde6b3; box-shadow: 0 0 0 1.5px #f3c98a inset; }
+.legend-dot.missing { background: #fdd3d3; box-shadow: 0 0 0 1.5px #f1a9a9 inset; }
+.legend-dot.numeric { background: #e3dfff; box-shadow: 0 0 0 1.5px #c7b7f5 inset; }
+.legend-dot.integer { background: #d2f0e6; box-shadow: 0 0 0 1.5px #b3dccd inset; }
+.legend-dot.ok { background: #d3ecde; box-shadow: 0 0 0 1.5px #aed8bd inset; }
+
+.column-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 7px 12px;
+    border-radius: 5px;
+    font-size: 11px;
+    font-weight: 700;
+    white-space: nowrap;
+    letter-spacing: .2px;
+}
+
+.column-chip.numeric {
+    background: #e3dfff;
+    color: #3d2fc4;
+    border: 1px solid #c7b7f5;
+}
+
+.column-chip.integer {
+    background: #d2f0e6;
+    color: #157056;
+    border: 1px solid #b3dccd;
+}
+
+.column-chip.dup {
+    background: #fde6b3;
+    color: #8a540d;
+    border: 1px solid #f3c98a;
+}
+
+.column-chip.missing {
+    background: #fdd3d3;
+    color: #b32828;
+    border: 1px solid #f1a9a9;
+}
+
+.column-chip .chip-name {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-width: 200px;
+}
+
+.column-chip .chip-count {
+    font-size: 9px;
+    opacity: .75;
+    margin-left: 4px;
+}
+
+.quality-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 12px;
+    border-bottom: 1px solid #e9ebee;
+    font-size: 11px;
+}
+
+.quality-item:last-child {
+    border-bottom: 0;
+}
+
+.quality-item .label {
+    color: #424953;
+    font-weight: 600;
+}
+
+.quality-item .value {
+    font-weight: 800;
+    color: #20252c;
+}
+
+.quality-item .value.warn {
+    color: #b32828;
+}
+
+.quality-item .value.high {
+    color: #8a540d;
 }
 
 .page-footer {

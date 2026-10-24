@@ -152,6 +152,129 @@ function renderTable(data) {
     $("#delete-rows").disabled = state.selectedRows.size === 0;
     $("#keep-rows").disabled = state.selectedRows.size === 0;
     updateChartOptions();
+    renderAnalysis(data);
+}
+
+function renderAnalysis(data) {
+    const container = $("#analysis-stats");
+    container.replaceChildren();
+
+    const stats = [
+        { label: "DUPLICATE ROWS", value: data.duplicate_rows ?? 0, kind: data.duplicate_rows > 0 ? "warn" : "ok" },
+        { label: "MISSING VALUES", value: data.missing_count ?? 0, kind: data.missing_count > 0 ? "warn" : "ok" },
+        { label: "NUMERIC COLS", value: (data.numeric_columns ?? []).length, kind: "ok" },
+        { label: "INTEGER COLS", value: (data.integer_columns ?? []).length, kind: "ok" },
+    ];
+
+    stats.forEach(({ label, value, kind }) => {
+        const card = document.createElement("div");
+        card.className = "stat-card";
+        const title = document.createElement("span");
+        title.className = "stat-label";
+        title.textContent = label;
+        const number = document.createElement("strong");
+        number.className = `stat-value ${kind === "warn" ? "high" : ""}`;
+        number.textContent = formatNumber(value);
+        card.append(title, number);
+        container.append(card);
+    });
+
+    renderColumnTypes(data);
+    renderDataQuality(data);
+}
+
+function renderColumnTypes(data) {
+    const list = $("#column-type-list");
+    list.replaceChildren();
+
+    const numeric = (data.numeric_columns ?? []).map(name => ({
+        name,
+        type: "numeric",
+        count: null,
+    }));
+    const integer = (data.integer_columns ?? []).map(name => ({
+        name,
+        type: "integer",
+        count: null,
+    }));
+
+    [...numeric, ...integer].forEach(({ name, type }) => {
+        const chip = document.createElement("span");
+        chip.className = `column-chip ${type}`;
+        chip.title = name;
+        const nameSpan = document.createElement("span");
+        nameSpan.className = "chip-name";
+        nameSpan.textContent = name;
+        chip.append(nameSpan);
+        list.append(chip);
+    });
+
+    if (list.children.length === 0) {
+        const empty = document.createElement("span");
+        empty.className = "column-chip numeric";
+        empty.textContent = "No numeric or integer columns detected.";
+        list.append(empty);
+    }
+}
+
+function renderDataQuality(data) {
+    const list = $("#data-quality-list");
+    list.replaceChildren();
+
+    const items = [];
+
+    if ((data.duplicate_rows ?? 0) > 0) {
+        items.push({
+            label: "Duplicate rows",
+            value: formatNumber(data.duplicate_rows),
+            kind: "high",
+            badge: "dup",
+            badgeText: `${formatNumber(data.duplicate_rows)} duplicate rows`,
+        });
+    }
+
+    const missing = data.missing_per_column ?? {};
+    Object.entries(missing).forEach(([column, count]) => {
+        items.push({
+            label: column,
+            value: formatNumber(count),
+            kind: "warn",
+            badge: "missing",
+            badgeText: `${formatNumber(count)} missing`,
+        });
+    });
+
+    if (items.length === 0) {
+        const item = document.createElement("div");
+        item.className = "quality-item";
+        item.style.justifyContent = "center";
+        item.style.gap = "12px";
+        item.innerHTML = '<span class="label">No issues detected</span><span class="value ok">Clean</span>';
+        list.append(item);
+        return;
+    }
+
+    items.forEach(({ label, badge, badgeText }) => {
+        const item = document.createElement("div");
+        item.className = "quality-item";
+        item.style.justifyContent = "center";
+        item.style.gap = "0";
+
+        const chip = document.createElement("span");
+        chip.className = `column-chip ${badge}`;
+
+        const nameSpan = document.createElement("span");
+        nameSpan.className = "chip-name";
+        nameSpan.textContent = label;
+
+        const countSpan = document.createElement("span");
+        countSpan.className = "chip-count";
+        countSpan.textContent = badgeText;
+
+        chip.append(nameSpan, countSpan);
+        item.append(chip);
+        list.append(item);
+    });
 }
 
 function renderFeatures(columns) {
@@ -230,12 +353,39 @@ async function uploadFile(file) {
         state.selectedRows.clear();
         state.selectedColumns.clear();
         $("#data-panel").hidden = false;
+        $("#analysis-panel").hidden = false;
         $("#chart-panel").hidden = false;
         renderTable(data);
         updateChartControls();
         setStep("clean");
         $("#chart-result").innerHTML = '<div class="chart-empty"><div class="chart-empty-icon" aria-hidden="true">⌁</div><strong>Your next insight starts here</strong><span>Pick a chart and create a visualization.</span></div>';
         showMessage(`Loaded ${formatNumber(data.row_count)} rows and ${formatNumber(data.column_count)} columns.`, "success");
+    } catch (error) {
+        showMessage(error.message);
+    }
+}
+
+async function downloadModifiedCSV() {
+    if (!state.datasetId) return;
+    clearMessage();
+    try {
+        const response = await fetch(`/api/download/${encodeURIComponent(state.datasetId)}`);
+        if (!response.ok) {
+            const body = await response.json().catch(() => ({}));
+            throw new Error(body.error || `Download failed (${response.status}).`);
+        }
+        const blob = await response.blob();
+        const url = URL.createObjectURL(blob);
+        const disposition = response.headers.get("content-disposition") || "";
+        const match = disposition.match(/filename="?([^";]+)"?/);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = match ? match[1] : "modified.csv";
+        document.body.append(a);
+        a.click();
+        a.remove();
+        URL.revokeObjectURL(url);
+        showMessage("Modified CSV downloaded.", "success");
     } catch (error) {
         showMessage(error.message);
     }
@@ -331,6 +481,7 @@ async function createChart() {
 $("#upload-form").addEventListener("submit", (event) => event.preventDefault());
 $("#file-input").addEventListener("change", (event) => uploadFile(event.target.files[0]));
 $("#replace-dataset").addEventListener("click", () => $("#file-input").click());
+$("#download-csv").addEventListener("click", downloadModifiedCSV);
 $("#previous-page").addEventListener("click", async () => {
     try { await loadPage(state.page - 1); } catch (error) { showMessage(error.message); }
 });
