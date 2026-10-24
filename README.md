@@ -1,6 +1,6 @@
 # EEDA, Easy EDA
 
-A small Flask app for uploading CSV files, viewing and editing columns, and plotting distributions, scatter plots, and numeric-column correlations.
+A small Flask app for uploading CSV files, viewing and editing columns, and creating histogram, violin, count, box, scatter, and correlation plots.
 
 ## Run locally
 
