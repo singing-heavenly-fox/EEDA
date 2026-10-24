@@ -1,5 +1,6 @@
 import numpy as np
 import pandas as pd
+import seaborn as sns
 import matplotlib
 import matplotlib.pyplot as plt
 import math
@@ -12,7 +13,7 @@ from flask import Flask, render_template, jsonify, request, send_file
 #without openning a window
 matplotlib.use("Agg")
 
-app = Flask(__name__)
+app = Flask(__name__)      
 app.config["MAX_CONTENT_LENGTH"] = 16*1024*1024 #upload lim:16MB
 
 rows_per_page = 50
@@ -176,38 +177,63 @@ def edit_columns():
 def make_chart(frame, data):
     chart_type = data.get("type")
 
-    if chart_type == "histogram":
+    if chart_type in ("histogram", "violin", "box"):
         column = data.get("column")
         if not isinstance(column, str) or column not in frame.columns:
-            raise ValueError("Choose a valid column for the histogram.")
+            raise ValueError(f"Choose a valid column for the {chart_type} plot.")
 
         values = pd.to_numeric(frame[column], errors="coerce").dropna().to_numpy(dtype=float)
         values = values[np.isfinite(values)]
         if len(values) == 0:
             raise ValueError("This column has no numeric values to plot.")
+        if chart_type == "violin" and (len(values) < 2 or np.ptp(values) == 0):
+            raise ValueError("A violin plot needs at least two different numeric values.")
 
         figure, axis = plt.subplots(figsize=(8, 4.5))
-        axis.hist(values, bins="auto", density=True, alpha=0.65, label="Histogram")
+        if chart_type == "histogram":
+            sns.histplot(x=values, bins="auto", stat="density", alpha=0.65, label="Histogram", ax=axis)
+            if len(values) > 1 and np.std(values) > 0:
+                sample = values
+                if len(sample) > 5000:
+                    sample = sample[np.linspace(0, len(sample) - 1, 5000, dtype=int)]
+                sns.kdeplot(x=sample, color="#f08c52", label="KDE", ax=axis)
 
-        # A KDE estimates a smooth curve from nearby data points.
-        # Sample large datasets so this calculation stays quick.
-        if len(values) > 1 and np.std(values) > 0:
-            spread = np.std(values, ddof=1)
-            sample = values
-            if len(sample) > 5000:
-                sample = sample[np.linspace(0, len(sample) - 1, 5000, dtype=int)]
-
-            bandwidth = 1.06 * spread * len(values) ** (-0.2)
-            x_values = np.linspace(values.min() - spread, values.max() + spread, 250)
-            distances = (x_values[:, None] - sample) / bandwidth
-            density = np.exp(-0.5 * distances**2).mean(axis=1)
-            density /= bandwidth * np.sqrt(2 * np.pi)
-            axis.plot(x_values, density, color="#f08c52", label="KDE")
-
-        axis.set(title=f"Distribution of {column}", xlabel=column, ylabel="Density")
-        axis.legend()
+            axis.set(title=f"Distribution of {column}", xlabel=column, ylabel="Density")
+            axis.legend()
+        elif chart_type == "violin":
+            if len(values) > 10_000:
+                values = values[np.linspace(0, len(values) - 1, 10_000, dtype=int)]
+            sns.violinplot(y=values, inner="box", color="#d8d5ff", ax=axis)
+            axis.set(title=f"Distribution of {column}", ylabel=column)
+        else:
+            sns.boxplot(y=values, color="#d8d5ff", ax=axis)
+            axis.set(title=f"Box plot of {column}", ylabel=column)
         figure.tight_layout()
         return figure, ""
+
+    if chart_type == "count":
+        column = data.get("column")
+        if not isinstance(column, str) or column not in frame.columns:
+            raise ValueError("Choose a valid column for the count plot.")
+
+        counts = frame[column].value_counts(dropna=False)
+        if counts.empty:
+            raise ValueError("This column has no values to count.")
+
+        note = ""
+        if len(counts) > 30:
+            counts = counts.head(30)
+            note = "Showing the 30 most frequent values."
+        plot_data = pd.DataFrame({
+            "label": ["Missing" if pd.isna(value) else str(value) for value in counts.index],
+            "count": counts.to_numpy(),
+        })
+        figure, axis = plt.subplots(figsize=(8, 4.5))
+        sns.barplot(data=plot_data, x="label", y="count", color="#6258e8", ax=axis)
+        axis.set(title=f"Value counts for {column}", xlabel=column, ylabel="Count")
+        axis.tick_params(axis="x", labelrotation=45)
+        figure.tight_layout()
+        return figure, note
 
     if chart_type == "scatter":
         x_column = data.get("x")
@@ -231,7 +257,7 @@ def make_chart(frame, data):
             points = points.iloc[np.linspace(0, len(points) - 1, 10_000, dtype=int)]
 
         figure, axis = plt.subplots(figsize=(8, 4.5))
-        axis.scatter(points["x"], points["y"], alpha=0.7, color="#6258e8")
+        sns.scatterplot(data=points, x="x", y="y", alpha=0.7, color="#6258e8", ax=axis)
         axis.set(title=f"{y_column} vs {x_column}", xlabel=x_column, ylabel=y_column)
         axis.grid(alpha=0.2)
         figure.tight_layout()
@@ -248,17 +274,15 @@ def make_chart(frame, data):
             note = "Showing the first 25 numeric columns."
 
         correlations = numeric_data.corr()
-        labels = [str(column) for column in correlations.columns]
         figure, axis = plt.subplots(figsize=(8, 6))
-        color_map = axis.imshow(correlations, cmap="coolwarm", vmin=-1, vmax=1)
-        axis.set_xticks(range(len(labels)), labels=labels, rotation=45, ha="right")
-        axis.set_yticks(range(len(labels)), labels=labels)
+        sns.heatmap(correlations,annot = True,fmt=".2f", cmap="coolwarm", vmin=-1, vmax=1, ax=axis, cbar_kws={"label": "Correlation"})
         axis.set_title("Numeric feature correlation")
-        figure.colorbar(color_map, ax=axis, label="Correlation")
         figure.tight_layout()
         return figure, note
 
-    raise ValueError("Choose histogram, scatter, or heatmap.")
+    raise ValueError("Choose histogram, violin, count, box, scatter, or heatmap.")
+
+
 
 
 @app.post("/api/plot")
