@@ -16,7 +16,7 @@ matplotlib.use("Agg")
 app = Flask(__name__)      
 app.config["MAX_CONTENT_LENGTH"] = 16*1024*1024 #upload lim:16MB
 
-rows_per_page = 50
+rows_per_page = 20
 datasets = {}
 original_files = {}
 
@@ -65,6 +65,7 @@ def make_dataset_response(dataset_id,frame,page=0):
     return {
         "dataset_id" : dataset_id,
         "columns" : [str(column) for column in frame.columns],
+        "column_statistics": data_describe(frame),
         "numeric_columns": [str(column) for column in numeric_columns],
         "integer_columns": [str(column) for column in integer_columns],
         "rows": rows,
@@ -77,6 +78,27 @@ def make_dataset_response(dataset_id,frame,page=0):
         "page_count":page_count,
         "page_size": rows_per_page,
     }
+
+def data_describe(frame):
+    numeric_columns = set(frame.select_dtypes(include="number").columns)
+    statistics = []
+    for column in frame.columns:
+        values = frame[column]
+        is_numeric = column in numeric_columns
+        modes = values.mode(dropna=True).tolist()
+        statistics.append({
+            "column": str(column),
+            "mean": make_json_value(values.mean()) if is_numeric else None,
+            "median": make_json_value(values.median()) if is_numeric else None,
+            "mode": [make_json_value(value) for value in modes],
+            "min":[make_json_value(values.min() if is_numeric else None)],
+            "max":[make_json_value(values.max() if is_numeric else None)],
+            "std": [make_json_value(values.std() if is_numeric else None)],
+            "var": [make_json_value(values.var() if is_numeric else None)],
+            "skew": [make_json_value(values.skew() if is_numeric else None)],
+        })
+    return statistics
+
 
 @app.get("/")
 def home():

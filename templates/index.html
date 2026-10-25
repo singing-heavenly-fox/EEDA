@@ -121,6 +121,30 @@
                 <button class="page-button" id="next-page" type="button" aria-label="Next page">→</button>
               </div>
             </div>
+            <div class="statistics-section">
+              <div class="statistics-heading">
+                <strong>Column statistics</strong>
+                <span>Mean and median are shown for numeric columns; mode is shown for all columns.</span>
+              </div>
+              <div class="statistics-scroll">
+                <table class="statistics-table">
+                  <thead>
+                    <tr>
+                      <th scope="col">COLUMN</th>
+                      <th scope="col">MEAN</th>
+                      <th scope="col">MEDIAN</th>
+                      <th scope="col">MODE</th>
+                      <th scope="col">MIN</th>
+                      <th scope="col">MAX</th>
+                      <th scope="col">STANDARD DAVIATION</th>
+                      <th scope="col">VARIANCE</th>
+                      <th scope="col">SKEWNESS</th>
+                    </tr>
+                  </thead>
+                  <tbody id="column-statistics-body"></tbody>
+                </table>
+              </div>
+            </div>
           </div>
         </section>
 

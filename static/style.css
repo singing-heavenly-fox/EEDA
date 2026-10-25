@@ -661,7 +661,8 @@ h2 {
 }
 
 .table-scroll {
-    overflow-x: auto;
+    max-height: 420px;
+    overflow: auto;
 }
 
 table {
@@ -679,6 +680,12 @@ th {
     font-size: 8px;
     font-weight: 400;
     letter-spacing: .4px;
+}
+
+thead th {
+    position: sticky;
+    top: 0;
+    z-index: 1;
 }
 
 td {
@@ -731,6 +738,40 @@ input[type="checkbox"] {
     border-top: 1px solid #eff0f2;
     color: #9aa1aa;
     font-size: 9px;
+}
+
+.statistics-section {
+    border-top: 1px solid #eff0f2;
+}
+
+.statistics-heading {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+    padding: 14px 16px 10px;
+}
+
+.statistics-heading strong {
+    color: #626b76;
+    font-size: 10px;
+    font-weight: 600;
+}
+
+.statistics-heading span {
+    color: #9aa1aa;
+    font-size: 9px;
+}
+
+.statistics-scroll {
+    max-height: 260px;
+    overflow: auto;
+}
+
+.statistics-table th:first-child,
+.statistics-table td:first-child {
+    width: auto;
+    padding-right: 13px;
+    text-align: left;
 }
 
 .pagination {

@@ -62,6 +62,14 @@ function formatNumber(value) {
     return new Intl.NumberFormat().format(value);
 }
 
+function formatStatistic(value) {
+    if (value === null || value === undefined) return "—";
+    if (typeof value === "number") {
+        return new Intl.NumberFormat(undefined, { maximumFractionDigits: 4 }).format(value);
+    }
+    return String(value);
+}
+
 function renderStats(data) {
     const stats = [
         ["ROWS", formatNumber(data.row_count)],
@@ -143,6 +151,31 @@ function renderTable(data) {
             tableRow.append(cell);
         });
         body.append(tableRow);
+    });
+
+    const statisticsBody = $("#column-statistics-body");
+    statisticsBody.replaceChildren();
+    (data.column_statistics ?? []).forEach((statistic) => {
+        const row = document.createElement("tr");
+        const values = [
+            statistic.column,
+            statistic.mean,
+            statistic.median,
+            statistic.mode,
+            statistic.min,
+            statistic.max,
+            statistic.std,
+            statistic.var,
+            statistic.skew,
+        ]
+
+        values.forEach((value) => {
+            const cell = document.createElement("td");
+            cell.textContent = formatStatistic(value);
+            cell.title = cell.textContent;
+            row.append(cell);
+        });
+        statisticsBody.append(row);
     });
 
     $("#page-caption").textContent = `Page ${data.page + 1} of ${data.page_count}`;
