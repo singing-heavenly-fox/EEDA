@@ -114,7 +114,13 @@ def upload_csv():
 
     try:
         raw = uploaded_file.stream.read()
-        frame = pd.read_csv(io.BytesIO(raw))
+        encodings = ["utf-8","utf-8-sig","latin-1","cp1252"]
+
+        for encoding in encodings:
+            try:
+                frame = pd.read_csv(io.BytesIO(raw), encoding = encoding)
+            except UnicodeDecodeError:
+                continue
     except (pd.errors.ParseError, pd.errors.EmptyDataError,UnicodeDecodeError,ValueError) as error:
         return error_response(f"could not read this file:{error}")
 
