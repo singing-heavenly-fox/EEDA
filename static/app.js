@@ -74,7 +74,7 @@ function renderStats(data) {
     const stats = [
         ["ROWS", formatNumber(data.row_count)],
         ["COLUMNS", formatNumber(data.column_count)],
-        ["MISSING VALUES", formatNumber(data.missing_count)],
+        ["TOTAL MISSING VALUES", formatNumber(data.missing_count)],
         ["NUMERIC FEATURES", formatNumber(data.numeric_columns.length)],
     ];
     const container = $("#stats");
@@ -194,7 +194,7 @@ function renderAnalysis(data) {
 
     const stats = [
         { label: "DUPLICATE ROWS", value: data.duplicate_rows ?? 0, kind: data.duplicate_rows > 0 ? "warn" : "ok" },
-        { label: "MISSING VALUES", value: data.missing_count ?? 0, kind: data.missing_count > 0 ? "warn" : "ok" },
+        { label: "TOTAL MISSING VALUES", value: data.missing_count ?? 0, kind: data.missing_count > 0 ? "warn" : "ok" },
         { label: "NUMERIC COLS", value: (data.numeric_columns ?? []).length, kind: "ok" },
         { label: "INTEGER COLS", value: (data.integer_columns ?? []).length, kind: "ok" },
     ];
